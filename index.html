@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoTIFF Map with Inset</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --border: #1f2937;
+      --accent: #38bdf8;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+    }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #0b1220;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0 0 6px 0;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .control {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .control h2 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    .control p {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .control input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .map-wrap {
+      position: relative;
+      padding: 12px 20px 20px;
+    }
+    #map-main {
+      height: calc(100vh - 210px);
+      min-height: 640px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0b1220;
+    }
+    #map-inset {
+      position: absolute;
+      left: 32px;
+      bottom: 32px;
+      width: 260px;
+      height: 190px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0b1220;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .inset-label {
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      color: #e2e8f0;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(226, 232, 240, 0.2);
+      z-index: 500;
+    }
+    .locate-btn {
+      position: absolute;
+      right: 26px;
+      top: 26px;
+      z-index: 600;
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .locate-btn:hover {
+      border-color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GeoTIFF Map with Inset</h1>
+    <p>Load two GeoTIFFs from your computer. The inset sits on top of the main map.</p>
+  </header>
+
+  <section class="controls">
+    <div class="control">
+      <h2>Main map</h2>
+      <p class="badge"><span class="dot"></span> Choose the large‑scale GeoTIFF</p>
+      <input id="file-main" type="file" accept=".tif,.tiff" />
+    </div>
+    <div class="control">
+      <h2>Inset map</h2>
+      <p class="badge"><span class="dot"></span> Choose the small‑scale GeoTIFF</p>
+      <input id="file-inset" type="file" accept=".tif,.tiff" />
+    </div>
+  </section>
+
+  <section class="map-wrap">
+    <button class="locate-btn" id="locate-btn">Show my location</button>
+    <div id="map-main"></div>
+    <div id="map-inset">
+      <div class="inset-label">Inset map</div>
+    </div>
+  </section>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.0/dist/geotiff.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/georaster@1.7.1/dist/georaster.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/georaster-layer-for-leaflet@3.2.0/dist/georaster-layer-for-leaflet.browser.min.js"></script>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof parseGeoraster === "undefined") {
+        alert("The map viewer scripts did not load. Please open this file while connected to the internet.");
+        return;
+      }
+
+      const mapMain = L.map("map-main", { zoomControl: true, attributionControl: false });
+      const mapInset = L.map("map-inset", { zoomControl: true, attributionControl: false });
+
+    let mainLayer, insetLayer;
+    let mainBounds = null;
+    let insetBounds = null;
+    let mainMarker = null;
+    let insetMarker = null;
+
+    const locationIcon = L.divIcon({
+      className: "location-pin",
+      html: "<div style='width:16px;height:16px;background:#f43f5e;border:2px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(244,63,94,0.25)'></div>",
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    async function loadGeotiff(file, map, existingLayerSetter, boundsSetter) {
+      if (!file) return;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const georaster = await parseGeoraster(arrayBuffer);
+        const isSingleBand = georaster.numberOfRasters === 1;
+        const mins = georaster.mins || [];
+        const maxs = georaster.maxs || [];
+        const scale = (val, min, max) => {
+          if (val === null || val === undefined) return null;
+          if (min === max) return 0;
+          const scaled = Math.round(((val - min) / (max - min)) * 255);
+          return Math.max(0, Math.min(255, scaled));
+        };
+        const layer = new GeoRasterLayer({
+          georaster,
+          opacity: 1,
+          resolution: 256,
+          pixelValuesToColorFn: (values) => {
+            if (!values) return null;
+            if (isSingleBand) {
+              const v = scale(values[0], mins[0], maxs[0]);
+              if (v === null) return null;
+              return `rgb(${v}, ${v}, ${v})`;
+            }
+            const r = scale(values[0], mins[0], maxs[0]);
+            const g = scale(values[1], mins[1], maxs[1]);
+            const b = scale(values[2], mins[2], maxs[2]);
+            if (r === null || g === null || b === null) return null;
+            return `rgb(${r}, ${g}, ${b})`;
+          }
+        });
+        if (existingLayerSetter.current) {
+          map.removeLayer(existingLayerSetter.current);
+        }
+        existingLayerSetter.current = layer;
+        layer.addTo(map);
+        const bounds = layer.getBounds();
+        boundsSetter(bounds);
+        map.fitBounds(bounds);
+      } catch (error) {
+        const message = error && error.message ? error.message : "Unknown error";
+        alert("That GeoTIFF could not be loaded.\n\nDetails: " + message + "\n\nPlease try exporting as GeoTIFF in EPSG:3857 (or 4326). If it still fails, share the error details so I can adjust the viewer.");
+      }
+    }
+
+    const mainState = { current: null };
+    const insetState = { current: null };
+
+    document.getElementById("file-main").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      loadGeotiff(file, mapMain, mainState, (b) => (mainBounds = b));
+    });
+
+    document.getElementById("file-inset").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      loadGeotiff(file, mapInset, insetState, (b) => (insetBounds = b));
+    });
+
+    function clearMarkers() {
+      if (mainMarker) {
+        mapMain.removeLayer(mainMarker);
+        mainMarker = null;
+      }
+      if (insetMarker) {
+        mapInset.removeLayer(insetMarker);
+        insetMarker = null;
+      }
+    }
+
+    function showLocationOnMap(latlng) {
+      clearMarkers();
+      if (mainBounds && mainBounds.contains(latlng)) {
+        mainMarker = L.marker(latlng, { icon: locationIcon }).addTo(mapMain);
+        mapMain.setView(latlng, Math.max(mapMain.getZoom(), 16));
+        return;
+      }
+      if (insetBounds && insetBounds.contains(latlng)) {
+        insetMarker = L.marker(latlng, { icon: locationIcon }).addTo(mapInset);
+        mapInset.setView(latlng, Math.max(mapInset.getZoom(), 10));
+        return;
+      }
+      if (mainBounds) {
+        mapMain.fitBounds(mainBounds, { padding: [20, 20] });
+      }
+      if (insetBounds) {
+        mapInset.fitBounds(insetBounds, { padding: [10, 10] });
+      }
+      alert("Your location is outside both map areas, so I zoomed out to show each map.");
+    }
+
+    document.getElementById("locate-btn").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("Location access is not available in this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          showLocationOnMap(latlng);
+        },
+        () => {
+          alert("Could not access your location. Please allow location access and try again.");
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    });
+  });
+  </script>
+</body>
+</html>
